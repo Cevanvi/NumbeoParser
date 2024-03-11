@@ -63,11 +63,19 @@ def create_plot():
     )
     def update_graph(selected_countries, selected_metric):
         if not selected_countries:
+            # If no countries are selected, display an empty figure
             return go.Figure()
 
         # Filter the DataFrame for the selected countries
         filtered_df = df_all_years[df_all_years["Country"].isin(selected_countries)]
 
+        # Sort the DataFrame based on the selected metric and Year to ensure that
+        # the lines are correctly ordered in the graph
+        filtered_df = filtered_df.sort_values(
+            by=["Year", selected_metric], ascending=[True, False]
+        )
+
+        # Create a line chart using Plotly Express
         fig = px.line(
             filtered_df,
             x="Year",
@@ -75,6 +83,7 @@ def create_plot():
             color="Country",  # Differentiate lines by country
             title=f"{selected_metric} Over Time",
             labels={"Country": "Country"},
+            category_orders={"Country": list(filtered_df["Country"].unique())},
             hover_data={"rank": True, selected_metric: True},
         )
 
@@ -89,7 +98,6 @@ def create_plot():
         return fig
 
 
-
 if __name__ == "__main__":
 
     csv_file_path = Path(__file__).parent / "quality_of_life_index_by_country.csv"
@@ -100,7 +108,5 @@ if __name__ == "__main__":
         logging.warning(f"{csv_file_path.name} not found.\nCollecting data...")
         subprocess.run(["python", script_path], check=True)
 
-
     create_plot()
     app.run_server(debug=True)
-
