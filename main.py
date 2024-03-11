@@ -14,16 +14,16 @@ app = dash.Dash(__name__)
 def create_plot():
     df_all_years = pd.read_csv("quality_of_life_index_by_country.csv", index_col=0)
     countries = sorted(df_all_years["Country"].unique())
-    metrics = [
-        "Purchasing Power Index",
-        "Safety Index",
-        "Health Care Index",
-        "Cost of Living Index",
-        "Property Price to Income Ratio",
-        "Traffic Commute Time Index",
-        "Pollution Index",
-        "Climate Index",
-    ]
+    metrics = {
+        "Purchasing Power Index": "(higher is better)",
+        "Safety Index": "(higher is better)",
+        "Health Care Index": "(higher is better)",
+        "Climate Index": "(higher is better)",
+        "Pollution Index": "(lower is better)",
+        "House Price to Income Ratio": "(lower is better)",
+        "Cost of Living Index": "(lower is better)",
+        "Traffic Commute Time Index": "(lower is better)",
+    }
 
     app.layout = html.Div(
         [
@@ -36,7 +36,7 @@ def create_plot():
                             {"label": country, "value": country}
                             for country in countries
                         ],
-                        value=["United States"],  # Set default value(s)
+                        value=["Finland"],  # Set default value(s)
                         multi=True,  # Allow multiple selections
                     ),
                 ]
@@ -47,7 +47,8 @@ def create_plot():
                     dcc.Dropdown(
                         id="metric-dropdown",
                         options=[
-                            {"label": metric, "value": metric} for metric in metrics
+                            {"label": metric, "value": metric}
+                            for metric in metrics.keys()
                         ],
                         value="Purchasing Power Index",  # Set a default value
                     ),
@@ -63,38 +64,32 @@ def create_plot():
     )
     def update_graph(selected_countries, selected_metric):
         if not selected_countries:
-            # If no countries are selected, display an empty figure
             return go.Figure()
 
-        # Filter the DataFrame for the selected countries
         filtered_df = df_all_years[df_all_years["Country"].isin(selected_countries)]
 
-        # Sort the DataFrame based on the selected metric and Year to ensure that
-        # the lines are correctly ordered in the graph
         filtered_df = filtered_df.sort_values(
-            by=["Year", selected_metric], ascending=[True, False]
+            by=["Year"],
+            ascending=[
+                True,
+            ],
         )
 
-        # Create a line chart using Plotly Express
         fig = px.line(
             filtered_df,
             x="Year",
             y=selected_metric,
-            color="Country",  # Differentiate lines by country
-            title=f"{selected_metric} Over Time",
+            color="Country",
+            title=f"{selected_metric} {metrics[selected_metric]}",
             labels={"Country": "Country"},
-            category_orders={"Country": list(filtered_df["Country"].unique())},
-            hover_data={"rank": True, selected_metric: True},
+            hover_data={
+                selected_metric: True,
+            },
+        )
+        fig.update_traces(
+            hovertemplate=("Year: %{x}<br>" f"{selected_metric}: " + "%{y:.2f}<br>")
         )
 
-        # Update hover template to display year, metric value, and rank
-        fig.update_traces(
-            hovertemplate=(
-                "Year: %{x}<br>"
-                f"{selected_metric}: " + "%{y:.2f}<br>"
-                "Rank: %{customdata[0]}<extra></extra>"
-            )
-        )
         return fig
 
 
