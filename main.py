@@ -7,22 +7,51 @@ import dash
 import logging
 import subprocess
 from pathlib import Path
+from typing import List
 
 app = dash.Dash(__name__)
 
 
 def create_plot():
-    df_all_years = pd.read_csv("quality_of_life_index_by_country.csv", index_col=0)
-    countries = sorted(df_all_years["Country"].unique())
+    df_all_years = pd.read_csv("quality_of_life_index_by_country.csv", delimiter=",")
+    countries: List[str] = sorted(df_all_years["country"].unique())
     metrics = {
-        "Purchasing Power Index": "(higher is better)",
-        "Safety Index": "(higher is better)",
-        "Health Care Index": "(higher is better)",
-        "Climate Index": "(higher is better)",
-        "Pollution Index": "(lower is better)",
-        "House Price to Income Ratio": "(lower is better)",
-        "Cost of Living Index": "(lower is better)",
-        "Traffic Commute Time Index": "(lower is better)",
+        "quality_of_fife_index": {
+            "rank": "(higher is better)",
+            "ascending": False,
+        },
+        "purchasing_power_index": {
+            "rank": "(higher is better)",
+            "ascending": False,
+        },
+        "safety_index": {
+            "rank": "(higher is better)",
+            "ascending": False,
+        },
+        "health_care_index": {
+            "rank": "(higher is better)",
+            "ascending": False,
+        },
+        "cost_of_living_index": {
+            "rank": "(lower is better)",
+            "ascending": True,
+        },
+        "property_price_to_income_ratio": {
+            "rank": "(lower is better)",
+            "ascending": True,
+        },
+        "climate_index": {
+            "rank": "(higher is better)",
+            "ascending": False,
+        },
+        "pollution_index": {
+            "rank": "(lower is better)",
+            "ascending": True,
+        },
+        "traffic_commute_time_index": {
+            "rank": "(lower is better)",
+            "ascending": True,
+        },
     }
 
     app.layout = html.Div(
@@ -36,7 +65,13 @@ def create_plot():
                             {"label": country, "value": country}
                             for country in countries
                         ],
-                        value=["Finland"],  # Set default value(s)
+                        value=[
+                            "Finland",
+                            "Sweden",
+                            "Norway",
+                            "Denmark",
+                            "Netherlands",
+                        ],  # Set default values
                         multi=True,  # Allow multiple selections
                     ),
                 ]
@@ -50,7 +85,7 @@ def create_plot():
                             {"label": metric, "value": metric}
                             for metric in metrics.keys()
                         ],
-                        value="Purchasing Power Index",  # Set a default value
+                        value="climate_index",  # Set a default value
                     ),
                 ]
             ),
@@ -60,34 +95,41 @@ def create_plot():
 
     @app.callback(
         Output("metric-graph", "figure"),
-        [Input("country-dropdown", "value"), Input("metric-dropdown", "value")],
+        [
+            Input("country-dropdown", "value"),
+            Input("metric-dropdown", "value"),
+        ],
     )
-    def update_graph(selected_countries, selected_metric):
+    def update_graph(selected_countries: List[str], selected_metric: str):
         if not selected_countries:
             return go.Figure()
 
-        filtered_df = df_all_years[df_all_years["Country"].isin(selected_countries)]
-
-        filtered_df = filtered_df.sort_values(
-            by=["Year"],
-            ascending=[
-                True,
-            ],
+        df_all_years["rank"] = df_all_years.groupby("year")[selected_metric].rank(
+            method="min", ascending=metrics[selected_metric]["ascending"]
         )
+
+        filtered_df = df_all_years[df_all_years["country"].isin(selected_countries)]
+
+        filtered_df.sort_values(by=["year", "rank"], inplace=True)
 
         fig = px.line(
             filtered_df,
-            x="Year",
+            x="year",
             y=selected_metric,
-            color="Country",
-            title=f"{selected_metric} {metrics[selected_metric]}",
-            labels={"Country": "Country"},
-            hover_data={
-                selected_metric: True,
-            },
+            color="country",
+            title=f"{selected_metric} {metrics[selected_metric]['rank']}",
+            hover_data={"rank": True, "country": True, selected_metric: True},
+            markers=True,
         )
+
+        fig.update_xaxes(dtick="1")  # step 1 year
         fig.update_traces(
-            hovertemplate=("Year: %{x}<br>" f"{selected_metric}: " + "%{y:.2f}<br>")
+            hovertemplate=(
+                "year: %{x}<br>"
+                f"{selected_metric}: " + "%{y:.2f}<br>"
+                "rank: %{customdata[0]}<br>"
+                "country: %{customdata[1]}"
+            )
         )
 
         return fig
